@@ -99,12 +99,18 @@ class FedNovaStrategy(AggregationStrategy):
             normalization = 1.0 / (1.0 + tau_i)
             
             for name in global_weights.keys():
-                delta_i = w_i[name].float() - global_weights[name].float()
-                global_delta[name] += client_weight * normalization * delta_i
+                # Only update floating point parameters (skip Long tensors like num_batches_tracked)
+                if global_weights[name].dtype != torch.long:
+                    delta_i = w_i[name].float() - global_weights[name].float()
+                    global_delta[name] += client_weight * normalization * delta_i
         
+        # w_new = w_global + delta_global
         new_global_weights = OrderedDict()
         for name in global_weights.keys():
-            new_global_weights[name] = global_weights[name] + global_delta[name]
+            if global_weights[name].dtype != torch.long:
+                new_global_weights[name] = global_weights[name] + global_delta[name]
+            else:
+                new_global_weights[name] = global_weights[name]
             
         return new_global_weights
 

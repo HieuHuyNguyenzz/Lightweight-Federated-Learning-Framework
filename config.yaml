@@ -1,13 +1,13 @@
-num_clients: 5
-rounds: 2
+batch_size: 32
+dataset_name: cifar10
+device: auto
+dirichlet_alpha: 0.5
 local_epochs: 1
 lr: 0.01
 max_parallel_clients: 2
-device: "auto" # Options: "auto", "mps", "cuda", "cpu"
-batch_size: 32
-dataset_name: "cifar10"
-model_type: "resnet18" # Options: "generic", "lenet", "resnet18", "vgg11", "mobilenet"
-partition_type: "non-iid" # Options: "iid", "non-iid", "dirichlet"
-dirichlet_alpha: 0.5 # Only used if partition_type is "dirichlet"
-strategy: "fednova" # Options: "fedavg", "fedprox", "scaffold", "fednova"
-mu: 0.01 # Proximal term for FedProx
+model_type: generic
+mu: 0.01
+num_clients: 2
+partition_type: non-iid
+rounds: 1
+strategy: scaffold

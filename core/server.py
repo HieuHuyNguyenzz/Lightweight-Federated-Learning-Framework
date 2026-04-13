@@ -8,7 +8,17 @@ class FLServer:
         self.config = config
         self.device = config.device
         self.strategy = strategy
-        self.global_model = model_class().to(self.device)
+        
+        # Model parameters based on dataset
+        params = {
+            "mnist": {"in_channels": 1, "input_size": 28, "num_classes": 10},
+            "fmnist": {"in_channels": 1, "input_size": 28, "num_classes": 10},
+            "emnist": {"in_channels": 1, "input_size": 28, "num_classes": 10},
+            "cifar10": {"in_channels": 3, "input_size": 32, "num_classes": 10},
+        }
+        p = params.get(config.dataset_name.lower(), params["mnist"])
+        
+        self.global_model = model_class(**p).to(self.device)
         
         # Scaffold states: global control variate and local control variates
         self.global_c = None

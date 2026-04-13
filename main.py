@@ -101,10 +101,19 @@ def main():
                 with mp.Pool(processes=len(batch_indices)) as pool:
                     # Prepare args for each client, including control variates for Scaffold
                     args = []
+                    # Move global weights to CPU once for all workers in this batch to avoid CUDA IPC issues
+                    global_weights_cpu = {k: v.cpu() for k, v in global_weights.items()}
+                    
                     for idx in batch_indices:
                         g_c = server.global_c if strategy_name == "Scaffold" else None
+                        if g_c:
+                            g_c = {k: v.cpu() for k, v in g_c.items()}
+                        
                         l_c = server.local_cs[idx] if strategy_name == "Scaffold" else None
-                        args.append((idx, model_class, client_datasets[idx], global_weights, config, strategy_name, g_c, l_c))
+                        if l_c:
+                            l_c = {k: v.cpu() for k, v in l_c.items()}
+                            
+                        args.append((idx, model_class, client_datasets[idx], global_weights_cpu, config, strategy_name, g_c, l_c))
                     
                     batch_updates = pool.starmap(train_client_worker, args)
                     local_updates_list.extend(batch_updates)
