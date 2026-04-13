@@ -24,9 +24,18 @@ class GenericCNN(nn.Module):
         x = self.dropout1(x)
         x = torch.flatten(x, 1)
         x = F.relu(self.fc1(x))
-        x = self.dropout2(x)
-        x = self.fc2(x)
+        features = self.dropout2(x)
+        x = self.fc2(features)
         return F.log_softmax(x, dim=1)
+
+    def forward_features(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.max_pool2d(x, 2)
+        x = self.dropout1(x)
+        x = torch.flatten(x, 1)
+        x = F.relu(self.fc1(x))
+        return self.dropout2(x)
 
 class LeNet5(nn.Module):
     """

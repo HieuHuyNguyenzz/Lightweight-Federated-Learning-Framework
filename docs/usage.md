@@ -22,8 +22,9 @@ Toàn bộ tham số được quản lý trong `config.yaml`. Bạn có thể th
 | `model_type` | Kiến trúc model | `"generic"`, `"lenet"`, `"resnet18"`, `"vgg11"`, `"mobilenet"` |
 | `partition_type` | Kiểu chia dữ liệu | `"iid"`, `"non-iid"`, `"dirichlet"` |
 | `dirichlet_alpha` | Độ lệch dữ liệu | $\alpha$ thấp $\rightarrow$ Non-IID cao |
-| `strategy` | Thuật toán gộp | `"fedavg"`, `"fedprox"`, `"scaffold"`, `"fednova"` |
+| `strategy` | Thuật toán gộp | `"fedavg"`, `"fedprox"`, `"scaffold"`, `"fednova"`, `"moon"` |
 | `mu` | Proximal term (FedProx) | 0.01 |
+| `moon_mu` | Contrastive weight (MOON) | 0.1 |
 | `log_file` | Tên file log | Mặc định: `fl_simulation.log` |
 
 ## Theo Dõi Tiến Độ và Kết Quả

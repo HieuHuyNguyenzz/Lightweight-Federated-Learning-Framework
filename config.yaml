@@ -6,8 +6,9 @@ local_epochs: 1
 lr: 0.01
 max_parallel_clients: 2
 model_type: generic
+moon_mu: 0.1
 mu: 0.01
 num_clients: 2
 partition_type: non-iid
 rounds: 1
-strategy: scaffold
+strategy: moon

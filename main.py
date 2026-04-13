@@ -56,6 +56,7 @@ def main():
         "fedprox": (FedProxStrategy(), "FedProx"),
         "scaffold": (ScaffoldStrategy(), "Scaffold"),
         "fednova": (FedNovaStrategy(), "FedNova"),
+        "moon": (FedAvgStrategy(), "Moon"),
     }
     
     # Priority logic for automatic selection if not specified or based on config

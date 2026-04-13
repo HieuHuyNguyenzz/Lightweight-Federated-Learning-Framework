@@ -1,7 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
+import copy
 
 class FLClient:
     """Generic FL Client that can work with any model and dataset."""
@@ -32,9 +34,23 @@ class FLClient:
             pin_memory=True if self.device.type == 'cuda' else False
         )
 
+    def _compute_contrastive_loss(self, z_curr, z_global, z_prev):
+        """
+        Computes the contrastive loss for MOON.
+        Loss = 1/2 * (1 - cos(z_curr, z_global)) + 1/2 * (1 - cos(z_curr, z_prev))
+        """
+        cos_global = F.cosine_similarity(z_curr, z_global, dim=1)
+        cos_prev = F.cosine_similarity(z_curr, z_prev, dim=1)
+        
+        loss = 0.5 * (1 - cos_global) + 0.5 * (1 - cos_prev)
+        return loss.mean()
+
     def train(self, global_weights, epochs=None, lr=None, strategy_type="FedAvg", global_c=None, local_c=None):
         train_epochs = epochs if epochs is not None else self.config.local_epochs
         train_lr = lr if lr is not None else self.config.lr
+        
+        # Save previous local model weights for MOON before loading global weights
+        prev_weights = copy.deepcopy(self.model.state_dict())
         
         self.model.load_state_dict(global_weights)
         self.model.train()
@@ -42,6 +58,19 @@ class FLClient:
         global_params = [p.clone().detach() for p in self.model.parameters()]
         optimizer = optim.SGD(self.model.parameters(), lr=train_lr)
         criterion = nn.CrossEntropyLoss()
+
+        # For MOON: Setup frozen models for representation extraction
+        if strategy_type == "Moon":
+            # Global model (frozen)
+            self.global_model_frozen = copy.deepcopy(self.model).eval()
+            for p in self.global_model_frozen.parameters():
+                p.requires_grad = False
+            
+            # Previous local model (frozen)
+            self.prev_model_frozen = copy.deepcopy(self.model).eval()
+            self.prev_model_frozen.load_state_dict(prev_weights)
+            for p in self.prev_model_frozen.parameters():
+                p.requires_grad = False
 
         # For Scaffold: track original gradients to update control variates
         grad_sums = {name: torch.zeros_like(param) for name, param in self.model.named_parameters()}
@@ -51,9 +80,20 @@ class FLClient:
             for batch_idx, (data, target) in enumerate(self.train_loader):
                 data, target = data.to(self.device), target.to(self.device)
                 optimizer.zero_grad()
-                output = self.model(data)
                 
+                # Standard Forward Pass
+                output = self.model(data)
                 loss = criterion(output, target)
+                
+                # MOON Contrastive Loss
+                if strategy_type == "Moon":
+                    with torch.no_grad():
+                        z_global = self.global_model_frozen.forward_features(data)
+                        z_prev = self.prev_model_frozen.forward_features(data)
+                    
+                    z_curr = self.model.forward_features(data)
+                    contrastive_loss = self._compute_contrastive_loss(z_curr, z_global, z_prev)
+                    loss += self.config.moon_mu * contrastive_loss
                 
                 if strategy_type == "FedProx":
                     proximal_term = 0.0
