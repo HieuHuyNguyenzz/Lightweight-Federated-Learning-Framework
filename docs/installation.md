@@ -17,8 +17,8 @@ pip install torch torchvision numpy PyYAML tqdm
 
 ## Cấu Trúc Thư Mục
 - `core/`: Lõi framework (Server, Client, Strategy, Config).
+- `models/`: Thư viện các mô hình CNN (Generic, LeNet, ResNet, VGG, MobileNet).
 - `utils/`: Công cụ hỗ trợ chia dữ liệu và logging.
-- `model.py`: Định nghĩa mô hình nơ-ron.
 - `main.py`: Điểm khởi chạy giả lập.
 - `config.yaml`: Cấu hình toàn bộ thí nghiệm.
 - `docs/`: Tài liệu hướng dẫn chi tiết.

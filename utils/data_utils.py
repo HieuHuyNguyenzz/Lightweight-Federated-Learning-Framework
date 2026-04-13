@@ -3,16 +3,49 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset
 import numpy as np
 
-def get_mnist_data():
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ])
+def get_dataset(dataset_name):
+    """
+    Dataset factory to load various datasets with appropriate transforms.
+    """
+    dataset_name = dataset_name.lower()
     
-    train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transform)
-    test_dataset = datasets.MNIST('./data', train=False, transform=transform)
-    
-    return train_dataset, test_dataset
+    if dataset_name == "mnist":
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
+        train = datasets.MNIST('./data', train=True, download=True, transform=transform)
+        test = datasets.MNIST('./data', train=False, transform=transform)
+        
+    elif dataset_name == "fmnist":
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.2860,), (0.3530,))
+        ])
+        train = datasets.FashionMNIST('./data', train=True, download=True, transform=transform)
+        test = datasets.FashionMNIST('./data', train=False, transform=transform)
+        
+    elif dataset_name == "emnist":
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+        # Using 'balanced' split for EMNIST
+        train = datasets.EMNIST('./data', split='balanced', train=True, download=True, transform=transform)
+        test = datasets.EMNIST('./data', split='balanced', train=False, transform=transform)
+        
+    elif dataset_name == "cifar10":
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.2010, 0.2023))
+        ])
+        train = datasets.CIFAR10('./data', train=True, download=True, transform=transform)
+        test = datasets.CIFAR10('./data', train=False, transform=transform)
+        
+    else:
+        raise ValueError(f"Dataset {dataset_name} not supported. Choose from: mnist, fmnist, emnist, cifar10")
+        
+    return train, test
 
 def partition_data(dataset, num_clients, partition_type="iid", alpha=0.5):
     """
@@ -32,26 +65,14 @@ def partition_data(dataset, num_clients, partition_type="iid", alpha=0.5):
         return [Subset(dataset, idx.tolist()) for idx in split]
     
     elif partition_type == "dirichlet":
-        # Dirichlet distribution partitioning
-        # 1. Group indices by label
         label_indices = {label: np.where(targets == label)[0] for label in np.unique(targets)}
-        
-        # 2. For each label, sample from Dirichlet distribution
-        # p is the distribution of a label across clients
         client_indices = [[] for _ in range(num_clients)]
         
         for label, indices in label_indices.items():
-            # Sample distribution for this label across clients
-            # np.random.dirichlet returns a vector that sums to 1
             p = np.random.dirichlet([alpha] * num_clients)
-            
-            # Proportion of total items for this label
             proportions = (p * len(indices)).astype(int)
-            
-            # Shuffle indices to ensure randomness
             np.random.shuffle(indices)
             
-            # Distribute indices to clients
             start = 0
             for i in range(num_clients):
                 end = start + proportions[i]

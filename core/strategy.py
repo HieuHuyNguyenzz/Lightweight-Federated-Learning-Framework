@@ -43,5 +43,35 @@ class FedProxStrategy(FedAvgStrategy):
     FedProx uses the same aggregation as FedAvg, but modifies the local training loss.
     """
     def aggregate(self, client_weights_list):
-        # FedProx uses the same averaging aggregation as FedAvg
         return super().aggregate(client_weights_list)
+
+class ScaffoldStrategy(AggregationStrategy):
+    """
+    SCAFFOLD (Stochastic Controlled Averaging) implementation.
+    SCAFFOLD uses control variates to correct client drift.
+    """
+    def aggregate(self, client_updates):
+        global_dict = OrderedDict()
+        global_c_update = OrderedDict()
+        num_clients = len(client_updates)
+        
+        if num_clients == 0:
+            return None, None
+            
+        for key in client_updates[0]['weights'].keys():
+            stacked_weights = torch.stack(
+                [upd['weights'][key].float() for upd in client_updates], 
+                dim=0
+            )
+            global_dict[key] = torch.mean(stacked_weights, dim=0)
+            
+        for key in client_updates[0]['grad_avg'].keys():
+            stacked_grads = torch.stack(
+                [upd['grad_avg'][key].float() for upd in client_updates], 
+                dim=0
+            )
+            global_c_update[key] = torch.mean(stacked_grads, dim=0)
+            
+        return global_dict, global_c_update
+
+

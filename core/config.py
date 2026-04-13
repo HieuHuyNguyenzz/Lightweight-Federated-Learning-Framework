@@ -12,6 +12,7 @@ class FLConfig:
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size: int = 32
     dataset_name: str = "mnist"
+    model_type: str = "generic" # Options: "generic", "lenet", "resnet18", "vgg11", "mobilenet"
     partition_type: str = "iid"
     dirichlet_alpha: float = 0.5
     # FedProx specific parameter

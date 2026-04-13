@@ -28,30 +28,30 @@ class GenericCNN(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
 
-class MNISTNet(GenericCNN):
-    def __init__(self):
-        super().__init__(in_channels=1, input_size=28, num_classes=10)
-
-class FMNISTNet(GenericCNN):
-    def __init__(self):
-        super().__init__(in_channels=1, input_size=28, num_classes=10)
-
-class EMNISTNet(GenericCNN):
-    def __init__(self):
-        super().__init__(in_channels=1, input_size=28, num_classes=10)
-
-class CIFAR10Net(GenericCNN):
-    def __init__(self):
-        super().__init__(in_channels=3, input_size=32, num_classes=10)
-
-def get_model_for_dataset(dataset_name):
+class LeNet5(nn.Module):
     """
-    Returns the appropriate model class based on the dataset name.
+    Classic LeNet-5 architecture for grayscale images.
     """
-    mapping = {
-        "mnist": MNISTNet,
-        "fmnist": FMNISTNet,
-        "emnist": EMNISTNet,
-        "cifar10": CIFAR10Net
-    }
-    return mapping.get(dataset_name.lower(), MNISTNet)
+    def __init__(self, num_classes=10):
+        super(LeNet5, self).__init__()
+        self.feature_extractor = nn.Sequential(
+            nn.Conv2d(1, 6, 5),
+            nn.ReLU(),
+            nn.AvgPool2d(2),
+            nn.Conv2d(6, 16, 5),
+            nn.ReLU(),
+            nn.AvgPool2d(2),
+        )
+        self.classifier = nn.Sequential(
+            nn.Linear(16 * 5 * 5, 120),
+            nn.ReLU(),
+            nn.Linear(120, 84),
+            nn.ReLU(),
+            nn.Linear(84, num_classes),
+        )
+
+    def forward(self, x):
+        x = self.feature_extractor(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return F.log_softmax(x, dim=1)
