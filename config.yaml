@@ -9,4 +9,5 @@ dataset_name: "cifar10"
 model_type: "resnet18" # Options: "generic", "lenet", "resnet18", "vgg11", "mobilenet"
 partition_type: "non-iid" # Options: "iid", "non-iid", "dirichlet"
 dirichlet_alpha: 0.5 # Only used if partition_type is "dirichlet"
+strategy: "fednova" # Options: "fedavg", "fedprox", "scaffold", "fednova"
 mu: 0.01 # Proximal term for FedProx

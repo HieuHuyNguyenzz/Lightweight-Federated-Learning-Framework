@@ -15,6 +15,7 @@ class FLConfig:
     model_type: str = "generic" # Options: "generic", "lenet", "resnet18", "vgg11", "mobilenet"
     partition_type: str = "iid"
     dirichlet_alpha: float = 0.5
+    strategy: str = "fedavg" # Options: "fedavg", "fedprox", "scaffold", "fednova"
     # FedProx specific parameter
     mu: float = 0.01 
 

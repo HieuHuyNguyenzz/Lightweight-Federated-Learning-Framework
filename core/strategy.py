@@ -6,31 +6,32 @@ class AggregationStrategy(ABC):
     """Abstract base class for FL aggregation strategies."""
     
     @abstractmethod
-    def aggregate(self, client_weights_list) -> OrderedDict:
+    def aggregate(self, client_updates, global_weights=None):
         """
         Perform weight aggregation.
         
         Args:
-            client_weights_list (list): List of state_dicts from clients.
+            client_updates (list): List of updates (state_dicts or dicts) from clients.
+            global_weights (OrderedDict, optional): The current global weights.
             
         Returns:
-            OrderedDict: The aggregated global weights.
+            Any: The aggregated global weights or a tuple (weights, extra_info).
         """
         pass
 
 class FedAvgStrategy(AggregationStrategy):
     """Federated Averaging (FedAvg) implementation."""
     
-    def aggregate(self, client_weights_list):
+    def aggregate(self, client_updates, global_weights=None):
         global_dict = OrderedDict()
-        num_clients = len(client_weights_list)
+        num_clients = len(client_updates)
         
         if num_clients == 0:
             return None
             
-        for key in client_weights_list[0].keys():
+        for key in client_updates[0].keys():
             stacked_weights = torch.stack(
-                [client_weights[key].float() for client_weights in client_weights_list], 
+                [client_weights[key].float() for client_weights in client_updates], 
                 dim=0
             )
             global_dict[key] = torch.mean(stacked_weights, dim=0)
@@ -42,15 +43,15 @@ class FedProxStrategy(FedAvgStrategy):
     Federated Proximal (FedProx) implementation.
     FedProx uses the same aggregation as FedAvg, but modifies the local training loss.
     """
-    def aggregate(self, client_weights_list):
-        return super().aggregate(client_weights_list)
+    def aggregate(self, client_updates, global_weights=None):
+        return super().aggregate(client_updates, global_weights)
 
 class ScaffoldStrategy(AggregationStrategy):
     """
     SCAFFOLD (Stochastic Controlled Averaging) implementation.
     SCAFFOLD uses control variates to correct client drift.
     """
-    def aggregate(self, client_updates):
+    def aggregate(self, client_updates, global_weights=None):
         global_dict = OrderedDict()
         global_c_update = OrderedDict()
         num_clients = len(client_updates)
@@ -73,5 +74,38 @@ class ScaffoldStrategy(AggregationStrategy):
             global_c_update[key] = torch.mean(stacked_grads, dim=0)
             
         return global_dict, global_c_update
+
+class FedNovaStrategy(AggregationStrategy):
+    """
+    FedNova (Federated Nova) implementation.
+    Addresses objective inconsistency by normalizing local updates.
+    """
+    def aggregate(self, client_updates, global_weights=None):
+        if not global_weights:
+            raise ValueError("FedNova requires global_weights for normalization.")
+            
+        num_clients = len(client_updates)
+        if num_clients == 0:
+            return None
+            
+        global_delta = OrderedDict({name: torch.zeros_like(param) for name, param in global_weights.items()})
+        client_weight = 1.0 / num_clients
+        
+        for update in client_updates:
+            w_i = update['weights']
+            local_steps = update['local_steps']
+            
+            tau_i = local_steps
+            normalization = 1.0 / (1.0 + tau_i)
+            
+            for name in global_weights.keys():
+                delta_i = w_i[name].float() - global_weights[name].float()
+                global_delta[name] += client_weight * normalization * delta_i
+        
+        new_global_weights = OrderedDict()
+        for name in global_weights.keys():
+            new_global_weights[name] = global_weights[name] + global_delta[name]
+            
+        return new_global_weights
 
 

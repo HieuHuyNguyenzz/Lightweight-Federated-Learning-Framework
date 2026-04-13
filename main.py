@@ -6,7 +6,7 @@ import sys
 from core.config import FLConfig
 from core.server import FLServer
 from core.client import FLClient
-from core.strategy import FedAvgStrategy, FedProxStrategy, ScaffoldStrategy
+from core.strategy import FedAvgStrategy, FedProxStrategy, ScaffoldStrategy, FedNovaStrategy
 from utils.data_utils import get_dataset, partition_data
 from utils.logger import setup_logger
 from utils.csv_logger import CSVLogger
@@ -51,13 +51,24 @@ def main():
     logger.info(f"Dataset partitioned using type: {config.partition_type}")
 
     # 3. Framework Initialization
-    if config.partition_type == "dirichlet" or config.mu > 0:
-        strategy = ScaffoldStrategy()
-        strategy_name = "Scaffold"
-    else:
-        strategy = FedAvgStrategy()
-        strategy_name = "FedAvg"
-        
+    strategy_map = {
+        "fedavg": (FedAvgStrategy(), "FedAvg"),
+        "fedprox": (FedProxStrategy(), "FedProx"),
+        "scaffold": (ScaffoldStrategy(), "Scaffold"),
+        "fednova": (FedNovaStrategy(), "FedNova"),
+    }
+    
+    # Priority logic for automatic selection if not specified or based on config
+    selected_strategy_key = config.strategy.lower()
+    if selected_strategy_key not in strategy_map:
+        # Fallback to original priority logic
+        if config.partition_type == "dirichlet" or config.mu > 0:
+            selected_strategy_key = "scaffold"
+        else:
+            selected_strategy_key = "fedavg"
+            
+    strategy, strategy_name = strategy_map[selected_strategy_key]
+    
     logger.info(f"Using strategy: {strategy_name}")
     
     # Get model class based on dataset AND model_type

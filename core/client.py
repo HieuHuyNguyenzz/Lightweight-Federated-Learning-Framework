@@ -85,6 +85,11 @@ class FLClient:
             avg_grads = {name: g / max(1, total_steps) for name, g in grad_sums.items()}
             return {'weights': self.model.state_dict(), 'grad_avg': avg_grads}
         
+        if strategy_type == "FedNova":
+            # FedNova needs total local steps for normalization on server side
+            total_local_steps = train_epochs * len(self.train_loader)
+            return {'weights': self.model.state_dict(), 'local_steps': total_local_steps}
+        
         return self.model.state_dict()
 
 

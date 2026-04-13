@@ -34,35 +34,43 @@ class FLServer:
     def aggregate(self, client_updates):
         """
         Aggregates weights using the injected strategy.
-        Handles both simple weights and Scaffold updates (weights + grad_avg).
+        Handles simple weights, Scaffold updates, and FedNova updates.
         """
-        # Check if we are using Scaffold (updates will be list of dicts)
-        is_scaffold = isinstance(client_updates[0], dict)
+        if not client_updates:
+            return None
+
+        # Detect update type based on the first client's update
+        first_update = client_updates[0]
+        
+        # Case 1: Scaffold (weights + grad_avg)
+        is_scaffold = isinstance(first_update, dict) and 'grad_avg' in first_update
+        # Case 2: FedNova (weights + local_steps)
+        is_fednova = isinstance(first_update, dict) and 'local_steps' in first_update
         
         if is_scaffold:
-            # Scaffold returns (global_weights, global_c_update)
-            global_weights, global_c_update = self.strategy.aggregate(client_updates)
+            global_weights, global_c_update = self.strategy.aggregate(client_updates, self.get_global_weights())
             
-            # Update global model
             self.global_model.load_state_dict(global_weights)
             
-            # Update global control variate: c_g = c_g + global_c_update
             with torch.no_grad():
                 for name, update in global_c_update.items():
                     self.global_c[name].add_(update)
             
-            # Update local control variates: c_i = c_i - grad_avg
-            # (This part is done during the update of global_c in original Scaffold paper,
-            # but usually handled by subtracting the current grad_avg from local c_i)
             for i, update in enumerate(client_updates):
                 grad_avg = update['grad_avg']
                 for name, g_val in grad_avg.items():
                     self.local_cs[i][name].sub_(g_val)
             
             return global_weights
+            
+        elif is_fednova:
+            global_weights = self.strategy.aggregate(client_updates, self.get_global_weights())
+            self.global_model.load_state_dict(global_weights)
+            return global_weights
+            
         else:
             # Standard FedAvg / FedProx
-            global_weights = self.strategy.aggregate(client_updates)
+            global_weights = self.strategy.aggregate(client_updates, self.get_global_weights())
             self.global_model.load_state_dict(global_weights)
             return global_weights
 
