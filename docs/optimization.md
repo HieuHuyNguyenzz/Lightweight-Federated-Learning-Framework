@@ -5,11 +5,11 @@ Framework LFL phiên bản refactor sử dụng kiến trúc modular để tách
 ## 1. Quản Lý Tài Nguyên theo Batch (Batch-based Resource Management)
 Thay vì khởi tạo toàn bộ clients, LFL chia client thành các nhóm nhỏ dựa trên `max_parallel_clients`.
 - **Cơ chế**: Sử dụng `torch.multiprocessing.Pool` để chạy song song một nhóm client.
-- **Thu hồi**: Gọi `gc.collect()` và `torch.cuda.empty_cache()` ngay sau khi một batch kết thúc.
+- **Thu hồi**: Gọi `gc.collect()` và `torch.cuda.empty_cache()` (chỉ dành cho CUDA) ngay sau khi một batch kết thúc.
 - **Kết quả**: RAM tiêu thụ là hằng số $O(K)$ với $K$ là số client song song, không phụ thuộc vào tổng số client.
 
 ## 2. Tối Ưu hóa Pipeline Dữ Liệu
-- **Async Loading**: Sử dụng `pin_memory=True` để tăng tốc độ nạp dữ liệu từ CPU $\rightarrow$ GPU.
+- **Async Loading**: Sử dụng `pin_memory=True` (chỉ dành cho CUDA) để tăng tốc độ nạp dữ liệu từ CPU $\rightarrow$ GPU.
 - **Memory Footprint**: `num_workers` được đặt là `0` trong môi trường đa tiến trình (`mp.Pool`) để tránh lỗi daemon process của Python, nhưng vẫn đảm bảo hiệu suất nhờ vào cơ chế batching.
 
 ## 3. Truyền Trọng Số Tối Giản (State Dict Passing)

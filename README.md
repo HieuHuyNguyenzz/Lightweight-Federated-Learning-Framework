@@ -44,6 +44,9 @@ Tích hợp các kiến trúc CNN từ cơ bản đến SOTA (được tối ưu
 - **FedProx**: Xử lý dữ liệu Non-IID bằng Proximal Term.
 - **SCAFFOLD**: Chống trôi dạt mô hình (Client Drift) bằng biến điều khiển.
 
+### 4. Tăng Tốc Phần Cứng
+- Hỗ trợ tự động phát hiện và tối ưu hóa cho **NVIDIA CUDA** và **Apple Silicon (MPS)**.
+
 ## 📂 Cấu Trúc Dự Án (Modular)
 - `core/`: Lõi framework (Server, Client, Strategy, Config).
 - `models/`: Thư viện các mô hình CNN.

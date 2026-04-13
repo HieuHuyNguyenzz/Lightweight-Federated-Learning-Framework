@@ -7,7 +7,7 @@ Tài liệu này hướng dẫn cách thiết lập môi trường cho framework
 - **Phiên bản Python**: 3.8 trở lên.
 - **Phần cứng**: 
   - RAM: Tối thiểu 4GB.
-  - GPU: Tùy chọn (Hỗ trợ CUDA để tăng tốc).
+   - GPU: Tùy chọn (Hỗ trợ CUDA cho NVIDIA và MPS cho Apple Silicon để tăng tốc).
 
 ## Cài Đặt Thư Viện Phụ Thuộc
 
