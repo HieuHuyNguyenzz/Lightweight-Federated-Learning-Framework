@@ -99,12 +99,10 @@ class FedNovaStrategy(AggregationStrategy):
             normalization = 1.0 / (1.0 + tau_i)
             
             for name in global_weights.keys():
-                # Only update floating point parameters (skip Long tensors like num_batches_tracked)
                 if global_weights[name].dtype != torch.long:
                     delta_i = w_i[name].float() - global_weights[name].float()
                     global_delta[name] += client_weight * normalization * delta_i
         
-        # w_new = w_global + delta_global
         new_global_weights = OrderedDict()
         for name in global_weights.keys():
             if global_weights[name].dtype != torch.long:
@@ -113,5 +111,34 @@ class FedNovaStrategy(AggregationStrategy):
                 new_global_weights[name] = global_weights[name]
             
         return new_global_weights
+
+class FedDynStrategy(AggregationStrategy):
+    """
+    FedDyn (Federated Dynamic) implementation.
+    Uses dynamic weighted aggregation based on alpha coefficients.
+    """
+    def aggregate(self, client_updates, global_weights=None, alphas=None):
+        if alphas is None:
+            raise ValueError("FedDyn requires alphas for weighted aggregation.")
+            
+        num_clients = len(client_updates)
+        if num_clients == 0:
+            return None
+            
+        global_dict = OrderedDict()
+        sum_alphas = sum(alphas.values())
+        
+        if sum_alphas == 0:
+            return global_weights
+
+        for key in client_updates[0].keys():
+            # Compute weighted sum: sum(alpha_i * w_i) / sum(alpha_i)
+            weighted_sum = torch.zeros_like(client_updates[0][key].float())
+            for i in range(num_clients):
+                weighted_sum += alphas[i] * client_updates[i][key].float()
+            
+            global_dict[key] = weighted_sum / sum_alphas
+            
+        return global_dict
 
 

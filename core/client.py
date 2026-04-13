@@ -45,7 +45,7 @@ class FLClient:
         loss = 0.5 * (1 - cos_global) + 0.5 * (1 - cos_prev)
         return loss.mean()
 
-    def train(self, global_weights, epochs=None, lr=None, strategy_type="FedAvg", global_c=None, local_c=None):
+    def train(self, global_weights, epochs=None, lr=None, strategy_type="FedAvg", global_c=None, local_c=None, alpha=1.0):
         train_epochs = epochs if epochs is not None else self.config.local_epochs
         train_lr = lr if lr is not None else self.config.lr
         
@@ -61,12 +61,10 @@ class FLClient:
 
         # For MOON: Setup frozen models for representation extraction
         if strategy_type == "Moon":
-            # Global model (frozen)
             self.global_model_frozen = copy.deepcopy(self.model).eval()
             for p in self.global_model_frozen.parameters():
                 p.requires_grad = False
             
-            # Previous local model (frozen)
             self.prev_model_frozen = copy.deepcopy(self.model).eval()
             self.prev_model_frozen.load_state_dict(prev_weights)
             for p in self.prev_model_frozen.parameters():
@@ -95,6 +93,14 @@ class FLClient:
                     contrastive_loss = self._compute_contrastive_loss(z_curr, z_global, z_prev)
                     loss += self.config.moon_mu * contrastive_loss
                 
+                # FedDyn Dynamic Regularization
+                if strategy_type == "FedDyn":
+                    # L_reg = alpha/2 * ||w - w_global||^2
+                    reg_term = 0.0
+                    for param, global_param in zip(self.model.parameters(), global_params):
+                        reg_term += ((param - global_param)**2).sum()
+                    loss += (alpha / 2) * reg_term
+
                 if strategy_type == "FedProx":
                     proximal_term = 0.0
                     for param, global_param in zip(self.model.parameters(), global_params):

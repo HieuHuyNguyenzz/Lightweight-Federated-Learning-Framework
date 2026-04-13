@@ -6,7 +6,7 @@ import sys
 from core.config import FLConfig
 from core.server import FLServer
 from core.client import FLClient
-from core.strategy import FedAvgStrategy, FedProxStrategy, ScaffoldStrategy, FedNovaStrategy
+from core.strategy import FedAvgStrategy, FedProxStrategy, ScaffoldStrategy, FedNovaStrategy, FedDynStrategy
 from utils.data_utils import get_dataset, partition_data
 from utils.logger import setup_logger
 from utils.csv_logger import CSVLogger
@@ -15,9 +15,9 @@ from tqdm import tqdm
 import gc
 
 # Worker function for parallel training
-def train_client_worker(client_id, model_class, train_dataset, global_weights, config, strategy_name, global_c=None, local_c=None):
+def train_client_worker(client_id, model_class, train_dataset, global_weights, config, strategy_name, global_c=None, local_c=None, alpha=1.0):
     client = FLClient(client_id, model_class, train_dataset, config)
-    weights = client.train(global_weights, strategy_type=strategy_name, global_c=global_c, local_c=local_c)
+    weights = client.train(global_weights, strategy_type=strategy_name, global_c=global_c, local_c=local_c, alpha=alpha)
     return weights
 
 def main():
@@ -57,6 +57,7 @@ def main():
         "scaffold": (ScaffoldStrategy(), "Scaffold"),
         "fednova": (FedNovaStrategy(), "FedNova"),
         "moon": (FedAvgStrategy(), "Moon"),
+        "feddyn": (FedDynStrategy(), "FedDyn"),
     }
     
     # Priority logic for automatic selection if not specified or based on config
@@ -76,9 +77,12 @@ def main():
     model_class = get_model_for_dataset(config.dataset_name, config.model_type)
     server = FLServer(model_class, strategy, config)
     
-    # Initialize Scaffold states if needed
+    # Initialize strategy-specific states
     if strategy_name == "Scaffold":
         server._init_scaffold_states(config.num_clients)
+    elif strategy_name == "FedDyn":
+        server._init_feddyn_states(config.num_clients)
+
 
     # 4. FL Simulation Loop
     for r in range(config.rounds):
@@ -100,7 +104,7 @@ def main():
                 batch_indices = range(i, min(i + config.max_parallel_clients, config.num_clients))
                 
                 with mp.Pool(processes=len(batch_indices)) as pool:
-                    # Prepare args for each client, including control variates for Scaffold
+                    # Prepare args for each client, including control variates for Scaffold and alpha for FedDyn
                     args = []
                     # Move global weights to CPU once for all workers in this batch to avoid CUDA IPC issues
                     global_weights_cpu = {k: v.cpu() for k, v in global_weights.items()}
@@ -114,7 +118,9 @@ def main():
                         if l_c:
                             l_c = {k: v.cpu() for k, v in l_c.items()}
                             
-                        args.append((idx, model_class, client_datasets[idx], global_weights_cpu, config, strategy_name, g_c, l_c))
+                        alpha = server.alphas[idx] if strategy_name == "FedDyn" else 1.0
+                        
+                        args.append((idx, model_class, client_datasets[idx], global_weights_cpu, config, strategy_name, g_c, l_c, alpha))
                     
                     batch_updates = pool.starmap(train_client_worker, args)
                     local_updates_list.extend(batch_updates)

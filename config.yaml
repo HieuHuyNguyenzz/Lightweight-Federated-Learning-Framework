@@ -11,4 +11,4 @@ mu: 0.01
 num_clients: 2
 partition_type: non-iid
 rounds: 1
-strategy: moon
+strategy: feddyn
