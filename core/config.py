@@ -9,7 +9,7 @@ class FLConfig:
     local_epochs: int = 1
     lr: float = 0.01
     max_parallel_clients: int = 2
-    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device: torch.device = torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
     batch_size: int = 32
     dataset_name: str = "mnist"
     model_type: str = "generic" # Options: "generic", "lenet", "resnet18", "vgg11", "mobilenet"
@@ -25,6 +25,10 @@ class FLConfig:
         
         # Convert device string to torch.device
         if 'device' in config_dict:
-            config_dict['device'] = torch.device(config_dict['device'])
+            device_str = config_dict['device']
+            if device_str == 'auto':
+                config_dict['device'] = torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
+            else:
+                config_dict['device'] = torch.device(device_str)
             
         return cls(**config_dict)

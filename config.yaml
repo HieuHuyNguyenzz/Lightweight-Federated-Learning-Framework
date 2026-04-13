@@ -3,7 +3,7 @@ rounds: 2
 local_epochs: 1
 lr: 0.01
 max_parallel_clients: 2
-device: "cuda" # Options: "cuda", "cpu"
+device: "auto" # Options: "auto", "mps", "cuda", "cpu"
 batch_size: 32
 dataset_name: "cifar10"
 model_type: "resnet18" # Options: "generic", "lenet", "resnet18", "vgg11", "mobilenet"
