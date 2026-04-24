@@ -2,11 +2,13 @@ import torch
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 
+from typing import Any
+
 class AggregationStrategy(ABC):
     """Abstract base class for FL aggregation strategies."""
     
     @abstractmethod
-    def aggregate(self, client_updates, global_weights=None):
+    def aggregate(self, client_updates, global_weights=None) -> Any:
         """
         Perform weight aggregation.
         
@@ -140,5 +142,9 @@ class FedDynStrategy(AggregationStrategy):
             global_dict[key] = weighted_sum / sum_alphas
             
         return global_dict
+
+class MoonStrategy(FedAvgStrategy):
+    """MOON strategy. Uses FedAvg for aggregation."""
+    pass
 
 

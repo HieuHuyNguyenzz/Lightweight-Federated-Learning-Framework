@@ -50,7 +50,7 @@ def get_dataset(dataset_name):
 def partition_data(dataset, num_clients, partition_type="iid", alpha=0.5):
     """
     Partition dataset into subsets for clients.
-    Supports 'iid', 'non-iid' (sort-by-label), and 'dirichlet'.
+    Supports 'iid' and 'non-iid' (dirichlet distribution).
     """
     num_items = int(len(dataset))
     targets = np.array(dataset.targets)
@@ -59,12 +59,7 @@ def partition_data(dataset, num_clients, partition_type="iid", alpha=0.5):
         split = np.array_split(np.arange(num_items), num_clients)
         return [Subset(dataset, indices.tolist()) for indices in split]
     
-    elif partition_type == "non-iid":
-        indices = np.argsort(targets)
-        split = np.array_split(indices, num_clients)
-        return [Subset(dataset, idx.tolist()) for idx in split]
-    
-    elif partition_type == "dirichlet":
+    elif partition_type == "non-iid" or partition_type == "dirichlet":
         label_indices = {label: np.where(targets == label)[0] for label in np.unique(targets)}
         client_indices = [[] for _ in range(num_clients)]
         

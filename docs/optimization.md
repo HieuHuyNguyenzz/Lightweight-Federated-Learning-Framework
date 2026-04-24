@@ -20,4 +20,4 @@ Framework chỉ truyền `state_dict` (OrderedDict của các tensor) giữa Ser
 
 ## 4. Chiến Lược Chia Dữ Liệu
 - **IID Partitioning**: Chia đều dữ liệu, phù hợp cho baseline.
-- **Non-IID Partitioning**: Chia theo nhãn, mô phỏng thực tế, giúp kiểm tra độ bền vững (robustness) của thuật toán gộp mà không làm tăng RAM.
+- **Non-IID Partitioning**: Sử dụng Dirichlet distribution, mô phỏng phân phối dữ liệu thực tế, giúp kiểm tra độ bền vững (robustness) của thuật toán gộp mà không làm tăng RAM.

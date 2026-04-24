@@ -17,20 +17,22 @@ Toàn bộ tham số được quản lý trong `config.yaml`. Bạn có thể th
 | `num_clients` | Tổng số client | Tùy quy mô mô phỏng |
 | `rounds` | Số vòng giao tiếp | 10 - 100 cho hội tụ |
 | `local_epochs` | Epoch mỗi client | 1 - 5 |
+| `lr` | Learning rate | 0.01 |
+| `batch_size` | Kích thước batch | 32 |
 | `max_parallel_clients` | Số client chạy song song | Điều chỉnh theo RAM |
 | `dataset_name` | Tập dữ liệu | `"mnist"`, `"fmnist"`, `"emnist"`, `"cifar10"` |
 | `model_type` | Kiến trúc model | `"generic"`, `"lenet"`, `"resnet18"`, `"vgg11"`, `"mobilenet"` |
-| `partition_type` | Kiểu chia dữ liệu | `"iid"`, `"non-iid"`, `"dirichlet"` |
+| `partition_type` | Kiểu chia dữ liệu | `"iid"`, `"non-iid"` (Dirichlet) |
 | `dirichlet_alpha` | Độ lệch dữ liệu | $\alpha$ thấp $\rightarrow$ Non-IID cao |
 | `strategy` | Thuật toán gộp | `"fedavg"`, `"fedprox"`, `"scaffold"`, `"fednova"`, `"moon"`, `"feddyn"` |
 | `mu` | Proximal term (FedProx) | 0.01 |
 | `moon_mu` | Contrastive weight (MOON) | 0.1 |
-| `log_file` | Tên file log | Mặc định: `fl_simulation.log` |
+| `device` | Thiết bị chạy | `"auto"`, `"cuda"`, `"mps"`, `"cpu"` |
 
 ## Theo Dõi Tiến Độ và Kết Quả
 - **Progress Bar**: Framework sử dụng `tqdm` để hiển thị tiến trình huấn luyện của từng Round ngay trên một dòng duy nhất.
-- **Kết quả CSV**: Mỗi lần chạy sẽ tạo ra một file `.csv` riêng biệt lưu trữ độ chính xác của từng round trong thư mục `results/`.
-  - **Quy tắc đặt tên**: `results_{dataset}_{partition}_{clients}_{rounds}_{timestamp}.csv`
+- **Kết quả CSV**: Mỗi lần chạy sẽ tạo ra một file `.csv` lưu trữ độ chính xác trong thư mục `results/`.
+   - **Quy tắc đặt tên**: `{dataset}_{strategy}_{partition}_{clients}.csv`
 
 ## Tùy Chỉnh Framework
 
@@ -42,4 +44,4 @@ Toàn bộ tham số được quản lý trong `config.yaml`. Bạn có thể th
 Vui lòng xem hướng dẫn chi tiết tại [Hướng dẫn phát triển thuật toán mới](./algorithm_dev.md).
 
 ### 3. Thử Nghiệm Dữ Liệu Non-IID
-Đặt `partition_type="dirichlet"` trong `config.yaml` để mô phỏng phân phối dữ liệu thực tế.
+Đặt `partition_type="non-iid"` trong `config.yaml` để mô phỏng phân phối dữ liệu thực tế (sử dụng Dirichlet distribution).

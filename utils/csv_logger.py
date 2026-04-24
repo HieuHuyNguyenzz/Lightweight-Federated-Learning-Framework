@@ -21,16 +21,14 @@ class CSVLogger:
 
     def _generate_filename(self):
         """
-        Generates a unique filename based on configuration and timestamp.
-        Pattern: results_{dataset}_{partition}_{clients}_{rounds}_{timestamp}.csv
+        Generates a filename based on configuration.
+        Pattern: {dataset}_{strategy}_{partition}_{clients}.csv
         """
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = (
-            f"results_{self.config.dataset_name}_"
+            f"{self.config.dataset_name}_"
+            f"{self.config.strategy}_"
             f"{self.config.partition_type}_"
-            f"{self.config.num_clients}_"
-            f"{self.config.rounds}_"
-            f"{timestamp}.csv"
+            f"{self.config.num_clients}.csv"
         )
         return filename
 

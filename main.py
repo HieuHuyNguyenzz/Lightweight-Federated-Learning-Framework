@@ -6,7 +6,7 @@ import sys
 from core.config import FLConfig
 from core.server import FLServer
 from core.client import FLClient
-from core.strategy import FedAvgStrategy, FedProxStrategy, ScaffoldStrategy, FedNovaStrategy, FedDynStrategy
+from core.strategy import FedAvgStrategy, FedProxStrategy, ScaffoldStrategy, FedNovaStrategy, FedDynStrategy, MoonStrategy
 from utils.data_utils import get_dataset, partition_data
 from utils.logger import setup_logger
 from utils.csv_logger import CSVLogger
@@ -56,7 +56,7 @@ def main():
         "fedprox": (FedProxStrategy(), "FedProx"),
         "scaffold": (ScaffoldStrategy(), "Scaffold"),
         "fednova": (FedNovaStrategy(), "FedNova"),
-        "moon": (FedAvgStrategy(), "Moon"),
+        "moon": (MoonStrategy(), "Moon"),
         "feddyn": (FedDynStrategy(), "FedDyn"),
     }
     
@@ -127,6 +127,8 @@ def main():
                 
                 if config.device.type == 'cuda':
                     torch.cuda.empty_cache()
+                elif config.device.type == 'mps':
+                    torch.mps.empty_cache()
                 gc.collect()
                 
                 pbar.update(len(batch_indices))

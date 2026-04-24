@@ -31,7 +31,7 @@ class FLClient:
             batch_size=config.batch_size, 
             shuffle=True,
             num_workers=0,
-            pin_memory=True if self.device.type == 'cuda' else False
+            pin_memory=True if self.device.type in ['cuda', 'mps'] else False
         )
 
     def _compute_contrastive_loss(self, z_curr, z_global, z_prev):
