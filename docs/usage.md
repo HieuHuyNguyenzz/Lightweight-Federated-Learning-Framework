@@ -24,10 +24,12 @@ Toàn bộ tham số được quản lý trong `config.yaml`. Bạn có thể th
 | `model_type` | Kiến trúc model | `"generic"`, `"lenet"`, `"resnet18"`, `"vgg11"`, `"mobilenet"` |
 | `partition_type` | Kiểu chia dữ liệu | `"iid"`, `"non-iid"` (Dirichlet) |
 | `dirichlet_alpha` | Độ lệch dữ liệu | $\alpha$ thấp $\rightarrow$ Non-IID cao |
-| `strategy` | Thuật toán gộp | `"fedavg"`, `"fedprox"`, `"scaffold"`, `"fednova"`, `"moon"`, `"feddyn"`, `"fedadam"` |
+| `strategy` | Thuật toán gộp | `"fedavg"`, `"fedprox"`, `"scaffold"`, `"fednova"`, `"moon"`, `"feddyn"`, `"fedadam"`, `"fedyogi"`, `"fedadagrad"` |
 | `mu` | Proximal term (FedProx) | 0.01 |
 | `moon_mu` | Contrastive weight (MOON) | 0.1 |
 | `fedadam_lr` | Server learning rate | 0.01 |
+| `fedyogi_lr` | Server learning rate | 0.01 |
+| `fedadagrad_lr` | Server learning rate | 0.01 |
 | `beta1` | Momentum coefficient | 0.9 |
 | `beta2` | Variance coefficient | 0.99 |
 | `epsilon` | Stability term | 1e-8 |

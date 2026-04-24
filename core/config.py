@@ -22,6 +22,10 @@ class FLConfig:
     moon_mu: float = 0.1
     # FedAdam specific parameters
     fedadam_lr: float = 0.01
+    # FedYogi specific parameters
+    fedyogi_lr: float = 0.01
+    # FedAdagrad specific parameters
+    fedadagrad_lr: float = 0.01
     beta1: float = 0.9
     beta2: float = 0.99
     epsilon: float = 1e-8

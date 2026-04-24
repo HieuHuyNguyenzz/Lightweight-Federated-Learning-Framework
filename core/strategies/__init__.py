@@ -5,6 +5,8 @@ from core.strategies.fednova import FedNovaStrategy
 from core.strategies.moon import MoonStrategy
 from core.strategies.feddyn import FedDynStrategy
 from core.strategies.fedadam import FedAdamStrategy
+from core.strategies.fedyogi import FedYogiStrategy
+from core.strategies.fedadagrad import FedAdagradStrategy
 
 def get_strategy(strategy_name):
     """
@@ -18,6 +20,8 @@ def get_strategy(strategy_name):
         "moon": MoonStrategy(),
         "feddyn": FedDynStrategy(),
         "fedadam": FedAdamStrategy(),
+        "fedyogi": FedYogiStrategy(),
+        "fedadagrad": FedAdagradStrategy(),
     }
     
     name = strategy_name.lower()
