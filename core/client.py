@@ -8,10 +8,11 @@ import copy
 class FLClient:
     """Generic FL Client that can work with any model and dataset."""
     
-    def __init__(self, client_id, model_class, train_dataset, config):
+    def __init__(self, client_id, model_class, train_dataset, config, strategy):
         self.client_id = client_id
         self.config = config
         self.device = config.device
+        self.strategy = strategy
         
         # Dataset parameters
         params = {
@@ -33,6 +34,9 @@ class FLClient:
             num_workers=0,
             pin_memory=True if self.device.type in ['cuda', 'mps'] else False
         )
+        
+        # Initialize strategy-specific states
+        self.strategy.init_client_state(self)
 
     def _compute_contrastive_loss(self, z_curr, z_global, z_prev):
         """
@@ -45,30 +49,29 @@ class FLClient:
         loss = 0.5 * (1 - cos_global) + 0.5 * (1 - cos_prev)
         return loss.mean()
 
-    def train(self, global_weights, epochs=None, lr=None, strategy_type="FedAvg", global_c=None, local_c=None, alpha=1.0):
+    def train(self, global_weights, epochs=None, lr=None, global_c=None, local_c=None, alpha=1.0):
         train_epochs = epochs if epochs is not None else self.config.local_epochs
         train_lr = lr if lr is not None else self.config.lr
         
-        # Save previous local model weights for MOON before loading global weights
+        # Store current weights for MOON and Scaffold’s grad tracking
         prev_weights = copy.deepcopy(self.model.state_dict())
         
         self.model.load_state_dict(global_weights)
         self.model.train()
         
-        global_params = [p.clone().detach() for p in self.model.parameters()]
+        # Store global params for proximal terms (FedProx, FedDyn)
+        self.global_params = [p.clone().detach() for p in self.model.parameters()]
+        
+        # Assign provided control variates for Scaffold
+        self.server_global_c = global_c
+        self.local_c = local_c
+        
         optimizer = optim.SGD(self.model.parameters(), lr=train_lr)
         criterion = nn.CrossEntropyLoss()
 
-        # For MOON: Setup frozen models for representation extraction
-        if strategy_type == "Moon":
-            self.global_model_frozen = copy.deepcopy(self.model).eval()
-            for p in self.global_model_frozen.parameters():
-                p.requires_grad = False
-            
-            self.prev_model_frozen = copy.deepcopy(self.model).eval()
-            self.prev_model_frozen.load_state_dict(prev_weights)
-            for p in self.prev_model_frozen.parameters():
-                p.requires_grad = False
+        # Strategy-specific setup (e.g., MOON frozen models)
+        if self.strategy.is_moon():
+            self.strategy.setup_moon_models(self, prev_weights)
 
         # For Scaffold: track original gradients to update control variates
         grad_sums = {name: torch.zeros_like(param) for name, param in self.model.named_parameters()}
@@ -83,60 +86,31 @@ class FLClient:
                 output = self.model(data)
                 loss = criterion(output, target)
                 
-                # MOON Contrastive Loss
-                if strategy_type == "Moon":
-                    with torch.no_grad():
-                        z_global = self.global_model_frozen.forward_features(data)
-                        z_prev = self.prev_model_frozen.forward_features(data)
-                    
-                    z_curr = self.model.forward_features(data)
-                    contrastive_loss = self._compute_contrastive_loss(z_curr, z_global, z_prev)
-                    loss += self.config.moon_mu * contrastive_loss
-                
-                # FedDyn Dynamic Regularization
-                if strategy_type == "FedDyn":
-                    # L_reg = alpha/2 * ||w - w_global||^2
-                    reg_term = 0.0
-                    for param, global_param in zip(self.model.parameters(), global_params):
-                        reg_term += ((param - global_param)**2).sum()
-                    loss += (alpha / 2) * reg_term
-
-                if strategy_type == "FedProx":
-                    proximal_term = 0.0
-                    for param, global_param in zip(self.model.parameters(), global_params):
-                        proximal_term += ((param - global_param)**2).sum()
-                    loss += (self.config.mu / 2) * proximal_term
+                # Strategy-specific loss modification
+                loss = self.strategy.apply_local_loss(self, loss, data, target, alpha=alpha)
                 
                 loss.backward()
                 
+                # Strategy-specific gradient modification (e.g., SCAFFOLD)
+                self.strategy.modify_gradients(self, self.model)
+                
                 # Capture original gradients for Scaffold
-                if strategy_type == "Scaffold":
+                if self.strategy.is_scaffold():
                     with torch.no_grad():
                         for name, param in self.model.named_parameters():
                             if param.grad is not None:
                                 grad_sums[name] += param.grad.clone()
                         total_steps += 1
-                    
-                    # Apply Scaffold correction to the gradient before optimizer step
-                    for name, param in self.model.named_parameters():
-                        if param.grad is not None:
-                            c_i = local_c[name].to(self.device)
-                            c_g = global_c[name].to(self.device)
-                            param.grad.data.add_(-c_i).add_(c_g)
                 
                 optimizer.step()
         
-        # Compute average gradient for Scaffold
-        if strategy_type == "Scaffold":
+        # Strategy-specific return values
+        if self.strategy.is_scaffold():
             avg_grads = {name: g / max(1, total_steps) for name, g in grad_sums.items()}
             return {'weights': self.model.state_dict(), 'grad_avg': avg_grads}
         
-        if strategy_type == "FedNova":
-            # FedNova needs total local steps for normalization on server side
+        if self.strategy.is_fednova():
             total_local_steps = train_epochs * len(self.train_loader)
             return {'weights': self.model.state_dict(), 'local_steps': total_local_steps}
         
         return self.model.state_dict()
-
-
-

@@ -1,6 +1,5 @@
 from collections import OrderedDict
 import torch
-from core.strategy import FedDynStrategy
 
 class FLServer:
     """Generic FL Server that manages the global model and aggregation strategy."""
@@ -21,29 +20,17 @@ class FLServer:
         
         self.global_model = model_class(**p).to(self.device)
         
-        # Scaffold states
+        # Strategy-specific states are managed within the strategy object
+        # or initialized here via the strategy's interface
+        self.strategy.init_server_state(self)
+        
+        # We keep a few generic placeholders for strategies that need them
         self.global_c = None
         self.local_cs = {} 
-        
-        # FedDyn states: alpha coefficients for each client
-        self.alphas = {} # {client_id: float}
-
-    def _init_scaffold_states(self, num_clients):
-        """Initialize control variates for Scaffold."""
-        self.global_c = OrderedDict({
-            name: torch.zeros_like(param).to(self.device) 
-            for name, param in self.global_model.named_parameters()
-        })
-        for i in range(num_clients):
-            self.local_cs[i] = OrderedDict({
-                name: torch.zeros_like(param).to(self.device) 
-                for name, param in self.global_model.named_parameters()
-            })
-
-    def _init_feddyn_states(self, num_clients):
-        """Initialize alpha coefficients for FedDyn."""
-        for i in range(num_clients):
-            self.alphas[i] = 1.0
+        self.alphas = {} 
+        self.m = None
+        self.v = None
+        self.t = 0
 
     def get_global_weights(self):
         return self.global_model.state_dict()
@@ -59,60 +46,9 @@ class FLServer:
 
     def aggregate(self, client_updates):
         """
-        Aggregates weights using the injected strategy.
-        Handles simple weights, Scaffold, FedNova, and FedDyn updates.
+        Delegates aggregation to the strategy object.
         """
-        if not client_updates:
-            return None
-
-        first_update = client_updates[0]
-        is_scaffold = isinstance(first_update, dict) and 'grad_avg' in first_update
-        is_fednova = isinstance(first_update, dict) and 'local_steps' in first_update
-        
-        # For FedDyn, check if the strategy is FedDynStrategy
-        is_feddyn = isinstance(self.strategy, FedDynStrategy)
-        
-        if is_scaffold:
-            global_weights, global_c_update = self.strategy.aggregate(client_updates, self.get_global_weights())
-            self.global_model.load_state_dict(global_weights)
-            with torch.no_grad():
-                for name, update in global_c_update.items():
-                    self.global_c[name].add_(update)
-            for i, update in enumerate(client_updates):
-                grad_avg = update['grad_avg']
-                for name, g_val in grad_avg.items():
-                    self.local_cs[i][name].sub_(g_val)
-            return global_weights
-            
-        elif is_fednova:
-            global_weights = self.strategy.aggregate(client_updates, self.get_global_weights())
-            self.global_model.load_state_dict(global_weights)
-            return global_weights
-            
-        elif is_feddyn:
-            # FedDyn aggregation: Weighted average by alphas
-            old_global_weights = self.get_global_weights()
-            global_weights = self.strategy.aggregate(client_updates, global_weights=old_global_weights, alphas=self.alphas)
-            self.global_model.load_state_dict(global_weights)
-            
-            # Update alphas for the next round
-            # alpha_{i, next} = alpha_{i, curr} * (||w_{next} - w_{curr}|| / ||w_{i, next} - w_{curr}||)
-            global_update_norm = self._compute_norm(global_weights, old_global_weights)
-            
-            for i, update in enumerate(client_updates):
-                local_update_norm = self._compute_norm(update, old_global_weights)
-                if local_update_norm > 0:
-                    self.alphas[i] *= (global_update_norm / local_update_norm)
-                
-                # Clip alpha to prevent instability
-                self.alphas[i] = max(0.01, min(self.alphas[i], 10.0))
-            
-            return global_weights
-            
-        else:
-            global_weights = self.strategy.aggregate(client_updates, self.get_global_weights())
-            self.global_model.load_state_dict(global_weights)
-            return global_weights
+        return self.strategy.aggregate(self, client_updates)
 
     def evaluate(self, test_loader):
         self.global_model.eval()
@@ -129,3 +65,4 @@ class FLServer:
                 total += target.size(0)
                 
         return 100. * correct / total
+

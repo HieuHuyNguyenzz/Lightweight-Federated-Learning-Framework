@@ -6,7 +6,7 @@ import sys
 from core.config import FLConfig
 from core.server import FLServer
 from core.client import FLClient
-from core.strategy import FedAvgStrategy, FedProxStrategy, ScaffoldStrategy, FedNovaStrategy, FedDynStrategy, MoonStrategy
+from core.strategies import get_strategy
 from utils.data_utils import get_dataset, partition_data
 from utils.logger import setup_logger
 from utils.csv_logger import CSVLogger
@@ -15,9 +15,9 @@ from tqdm import tqdm
 import gc
 
 # Worker function for parallel training
-def train_client_worker(client_id, model_class, train_dataset, global_weights, config, strategy_name, global_c=None, local_c=None, alpha=1.0):
-    client = FLClient(client_id, model_class, train_dataset, config)
-    weights = client.train(global_weights, strategy_type=strategy_name, global_c=global_c, local_c=local_c, alpha=alpha)
+def train_client_worker(client_id, model_class, train_dataset, global_weights, config, strategy, global_c=None, local_c=None, alpha=1.0):
+    client = FLClient(client_id, model_class, train_dataset, config, strategy)
+    weights = client.train(global_weights, global_c=global_c, local_c=local_c, alpha=alpha)
     return weights
 
 def main():
@@ -51,25 +51,8 @@ def main():
     logger.info(f"Dataset partitioned using type: {config.partition_type}")
 
     # 3. Framework Initialization
-    strategy_map = {
-        "fedavg": (FedAvgStrategy(), "FedAvg"),
-        "fedprox": (FedProxStrategy(), "FedProx"),
-        "scaffold": (ScaffoldStrategy(), "Scaffold"),
-        "fednova": (FedNovaStrategy(), "FedNova"),
-        "moon": (MoonStrategy(), "Moon"),
-        "feddyn": (FedDynStrategy(), "FedDyn"),
-    }
-    
-    # Priority logic for automatic selection if not specified or based on config
-    selected_strategy_key = config.strategy.lower()
-    if selected_strategy_key not in strategy_map:
-        # Fallback to original priority logic
-        if config.partition_type == "dirichlet" or config.mu > 0:
-            selected_strategy_key = "scaffold"
-        else:
-            selected_strategy_key = "fedavg"
-            
-    strategy, strategy_name = strategy_map[selected_strategy_key]
+    strategy = get_strategy(config.strategy)
+    strategy_name = config.strategy.capitalize()
     
     logger.info(f"Using strategy: {strategy_name}")
     
@@ -77,11 +60,9 @@ def main():
     model_class = get_model_for_dataset(config.dataset_name, config.model_type)
     server = FLServer(model_class, strategy, config)
     
-    # Initialize strategy-specific states
-    if strategy_name == "Scaffold":
-        server._init_scaffold_states(config.num_clients)
-    elif strategy_name == "FedDyn":
-        server._init_feddyn_states(config.num_clients)
+    # Strategy-specific server initialization
+    strategy.init_server_state(server)
+
 
 
     # 4. FL Simulation Loop
@@ -110,17 +91,17 @@ def main():
                     global_weights_cpu = {k: v.cpu() for k, v in global_weights.items()}
                     
                     for idx in batch_indices:
-                        g_c = server.global_c if strategy_name == "Scaffold" else None
+                        g_c = server.global_c if strategy.is_scaffold() else None
                         if g_c:
                             g_c = {k: v.cpu() for k, v in g_c.items()}
                         
-                        l_c = server.local_cs[idx] if strategy_name == "Scaffold" else None
+                        l_c = server.local_cs[idx] if strategy.is_scaffold() else None
                         if l_c:
                             l_c = {k: v.cpu() for k, v in l_c.items()}
                             
-                        alpha = server.alphas[idx] if strategy_name == "FedDyn" else 1.0
+                        alpha = server.alphas[idx] if strategy.is_feddyn() else 1.0
                         
-                        args.append((idx, model_class, client_datasets[idx], global_weights_cpu, config, strategy_name, g_c, l_c, alpha))
+                        args.append((idx, model_class, client_datasets[idx], global_weights_cpu, config, strategy, g_c, l_c, alpha))
                     
                     batch_updates = pool.starmap(train_client_worker, args)
                     local_updates_list.extend(batch_updates)

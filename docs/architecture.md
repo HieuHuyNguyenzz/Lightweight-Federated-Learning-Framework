@@ -1,33 +1,35 @@
-# Architecture (Refactored)
+# Architecture (Strategy-Centric)
 
-The Lightweight Federated Learning (LFL) framework is now a modular system designed for high extensibility and RAM efficiency.
+The Lightweight Federated Learning (LFL) framework employs a **Strategy-Centric** modular architecture. This design decouples the training orchestration from the specific mathematical implementation of aggregation algorithms, ensuring high extensibility and RAM efficiency.
 
 ## 🏗 Modular Design
 
-The framework is split into three main layers to decouple logic from implementation.
+The framework is split into three main layers:
 
 ### 1. Core Engine (`/core`)
-This layer contains the logic that remains constant regardless of the model or dataset used.
-- **`FLServer`**: Orchestrates the FL process. It is agnostic to the aggregation algorithm used.
-- **`FLClient`**: Handles local training. It can take any `nn.Module` and any `Dataset`.
-- **`AggregationStrategy`**: An abstract base class. New algorithms (FedProx, FedAdam) can be added by creating new subclasses without touching the Server code.
+This layer handles the "how" of Federated Learning (communication, parallelization, and state management).
+- **`FLServer`**: A lean orchestrator. It no longer contains algorithm-specific logic. Instead, it delegates aggregation and state initialization to the active `Strategy` object.
+- **`FLClient`**: A generic trainer. It performs local SGD and delegates loss modification (e.g., proximal terms) and gradient correction to the `Strategy` object.
+- **`strategies/`**: The heart of the framework. Each algorithm (FedAvg, FedAdam, etc.) is encapsulated in its own class inheriting from `BaseStrategy`.
 - **`FLConfig`**: A centralized configuration object for easy hyperparameter management.
 
 ### 2. Utility Layer (`/utils`)
-Helper functions for data management.
-- **`partition_data`**: Now supports both **IID** and **Non-IID** (Dirichlet distribution) partitioning to simulate real-world data skew.
+Helper functions for data and logging.
+- **`partition_data`**: Supports **IID** and **Non-IID** (Dirichlet distribution) partitioning.
+- **`CSVLogger`**: Saves results with the format `{dataset}_{strategy}_{partition}_{clients}.csv`.
 
 ### 3. Experiment Layer (`main.py` & `models/`)
-The user-defined part of the framework.
-- **`models/`**: Thư viện các mô hình CNN.
-- **`main.py`**: The "glue" code that chooses the model, the dataset, and the strategy, then launches the simulation.
+- **`models/`**: Library of CNN architectures.
+- **`main.py`**: The entry point that wires together the dataset, model, and strategy.
 
-## 🚀 Scalability Features
+## 🚀 Scalability & Extensibility
 
 ### Memory Management
 LFL continues to use **Parallel Batching** via `torch.multiprocessing`. By adjusting `max_parallel_clients`, you can scale the simulation to hundreds of clients while keeping RAM usage constant ($O(max\_parallel)$ instead of $O(total\_clients)$).
 
-### Extensibility Path
-- **To add a new model**: Create it in `models/base.py` or `models/torchvision_wrappers.py` $\rightarrow$ add to mapping in `models/__init__.py` $\rightarrow$ use in `main.py`.
-- **To add a new algorithm**: Create a new class in `core/strategy.py` inheriting from `AggregationStrategy` $\rightarrow$ pass it to `FLServer`.
-- **To test Non-IID data**: Change `partition_type="non-iid"` in config. Non-IID sử dụng Dirichlet distribution để mô phỏng phân phối dữ liệu thực tế.
+### The Strategy Pattern
+Adding a new algorithm no longer requires modifying the Server or Client code. 
+1. Create a new strategy class in `core/strategies/`.
+2. Implement `aggregate` (server-side) and `apply_local_loss` (client-side).
+3. Register it in `core/strategies/__init__.py`.
+4. Select it in `config.yaml`.

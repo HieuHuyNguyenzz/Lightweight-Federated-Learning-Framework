@@ -20,6 +20,12 @@ class FLConfig:
     mu: float = 0.01 
     # MOON specific parameter
     moon_mu: float = 0.1
+    # FedAdam specific parameters
+    fedadam_lr: float = 0.01
+    beta1: float = 0.9
+    beta2: float = 0.99
+    epsilon: float = 1e-8
+
 
     @classmethod
     def load_from_yaml(cls, path="config.yaml"):
