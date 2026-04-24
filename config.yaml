@@ -2,6 +2,9 @@ batch_size: 32
 dataset_name: cifar10
 device: auto
 dirichlet_alpha: 0.5
+dp_clip_norm: 1.0
+dp_enabled: false
+dp_sigma: 0.1
 local_epochs: 1
 lr: 0.01
 max_parallel_clients: 2
@@ -11,4 +14,4 @@ mu: 0.01
 num_clients: 2
 partition_type: non-iid
 rounds: 1
-strategy: fedadagrad
+strategy: fedprox

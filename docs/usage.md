@@ -34,6 +34,9 @@ Toàn bộ tham số được quản lý trong `config.yaml`. Bạn có thể th
 | `beta2` | Variance coefficient | 0.99 |
 | `epsilon` | Stability term | 1e-8 |
 | `device` | Thiết bị chạy | `"auto"`, `"cuda"`, `"mps"`, `"cpu"` |
+| `dp_enabled` | Bật bảo mật vi sai | `False` |
+| `dp_clip_norm` | Ngưỡng cắt gradient | 1.0 |
+| `dp_sigma` | Hệ số nhiễu Gaussian | 0.1 |
 
 ## Theo Dõi Tiến Độ và Kết Quả
 - **Progress Bar**: Framework sử dụng `tqdm` để hiển thị tiến trình huấn luyện của từng Round ngay trên một dòng duy nhất.

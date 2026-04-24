@@ -46,9 +46,31 @@ class FLServer:
 
     def aggregate(self, client_updates):
         """
-        Delegates aggregation to the strategy object.
+        Aggregates weights using the injected strategy.
+        Handles simple weights, Scaffold, FedNova, FedDyn, and FedAdam updates.
         """
-        return self.strategy.aggregate(self, client_updates)
+        if not client_updates:
+            return None
+        
+        global_weights = self.strategy.aggregate(self, client_updates)
+        
+        # Differential Privacy: Noise Addition
+        if self.config.dp_enabled:
+            with torch.no_grad():
+                num_clients = len(client_updates)
+                # Noise scale: sigma * clip_norm / sqrt(num_clients)
+                # This ensures the average has the correct DP property
+                noise_std = (self.config.dp_sigma * self.config.dp_clip_norm) / (num_clients**0.5)
+                
+                for name, param in self.global_model.named_parameters():
+                    # Add Gaussian noise to the weights
+                    noise = torch.randn_like(param) * noise_std
+                    param.data.add_(noise)
+                
+                # Update global_weights to reflect the noise addition
+                global_weights = self.get_global_weights()
+                
+        return global_weights
 
     def evaluate(self, test_loader):
         self.global_model.eval()

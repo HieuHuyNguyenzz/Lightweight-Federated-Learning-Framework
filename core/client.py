@@ -4,6 +4,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import copy
+from collections import OrderedDict
 
 class FLClient:
     """Generic FL Client that can work with any model and dataset."""
@@ -49,11 +50,40 @@ class FLClient:
         loss = 0.5 * (1 - cos_global) + 0.5 * (1 - cos_prev)
         return loss.mean()
 
+    def _apply_dp_clipping(self, final_weights, initial_weights):
+        """
+        Applies L2 norm clipping to the weight updates for Differential Privacy.
+        """
+        with torch.no_grad():
+            delta_w = OrderedDict()
+            total_norm = 0.0
+            
+            # Calculate Delta and total L2 norm
+            for name in final_weights.keys():
+                # Ensure initial weights are on the correct device
+                w_init = initial_weights[name].to(self.device)
+                diff = final_weights[name].float() - w_init.float()
+                delta_w[name] = diff
+                total_norm += torch.norm(diff).item()**2
+            
+            total_norm = total_norm**0.5
+            
+            # Clip if norm exceeds threshold
+            clip_coeff = min(1.0, self.config.dp_clip_norm / (total_norm + 1e-6))
+            
+            clipped_weights = OrderedDict()
+            for name in final_weights.keys():
+                # Ensure initial weights are on the correct device
+                w_init = initial_weights[name].to(self.device)
+                clipped_weights[name] = w_init + clip_coeff * delta_w[name]
+                
+            return clipped_weights
+
     def train(self, global_weights, epochs=None, lr=None, global_c=None, local_c=None, alpha=1.0):
         train_epochs = epochs if epochs is not None else self.config.local_epochs
         train_lr = lr if lr is not None else self.config.lr
         
-        # Store current weights for MOON and Scaffold’s grad tracking
+        # Store current weights for MOON and DP clipping
         prev_weights = copy.deepcopy(self.model.state_dict())
         
         self.model.load_state_dict(global_weights)
@@ -61,11 +91,6 @@ class FLClient:
         
         # Store global params for proximal terms (FedProx, FedDyn)
         self.global_params = [p.clone().detach() for p in self.model.parameters()]
-        
-        # Assign provided control variates for Scaffold
-        self.server_global_c = global_c
-        self.local_c = local_c
-        
         optimizer = optim.SGD(self.model.parameters(), lr=train_lr)
         criterion = nn.CrossEntropyLoss()
 
@@ -113,4 +138,8 @@ class FLClient:
             total_local_steps = train_epochs * len(self.train_loader)
             return {'weights': self.model.state_dict(), 'local_steps': total_local_steps}
         
-        return self.model.state_dict()
+        final_weights = self.model.state_dict()
+        if self.config.dp_enabled:
+            final_weights = self._apply_dp_clipping(final_weights, global_weights)
+            
+        return final_weights

@@ -29,6 +29,11 @@ class FLConfig:
     beta1: float = 0.9
     beta2: float = 0.99
     epsilon: float = 1e-8
+    
+    # Differential Privacy (DP) parameters
+    dp_enabled: bool = False
+    dp_clip_norm: float = 1.0
+    dp_sigma: float = 0.1
 
 
     @classmethod
